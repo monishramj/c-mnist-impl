@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 typedef struct arena
 {
@@ -16,4 +17,4 @@ void *arena_push(arena_t *, size_t);
 void arena_clear(arena_t *);
 void arena_destroy(arena_t **);
 arena_t *arena_scratch_get(arena_t *);
-void arena_scratch_release();
+void arena_scratch_release(arena_t *);

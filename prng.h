@@ -1,5 +1,7 @@
 // https://www.youtube.com/watch?v=_pDPfFsG89A
 
+#include "base.h"
+
 typedef struct
 {
   u64 state;

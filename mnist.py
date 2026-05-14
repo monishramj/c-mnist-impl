@@ -1,3 +1,9 @@
+'''
+Script that loads and processes MNIST dataset for library.
+Original video uses TensorFlow, deprecated as of Python 3.14.
+Currently using HuggingFace instead.
+'''
+
 from datasets import load_dataset
 import numpy as np
 

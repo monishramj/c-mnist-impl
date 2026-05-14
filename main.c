@@ -1,7 +1,3 @@
-#include "base.h"
-#include "arena.h"
-#include "prng.h"
-
 #include "arena.c"
 #include "prng.c"
 
@@ -12,6 +8,7 @@ typedef struct
 } matrix;
 
 matrix *mat_create(arena_t *arena, u32 rows, u32 cols);
+matrix *mat_load(arena_t *arena, u32 rows, u32 cols, const char *filename);
 void mat_clear(matrix *mat);
 b32 mat_copy(matrix *dst, matrix *src);
 void mat_fill(matrix *mat, f32 x);
@@ -30,13 +27,59 @@ b32 mat_relu_add_grad(matrix *out, const matrix *in);
 b32 mat_softmax_add_grad(matrix *out, const matrix *softmax_out);
 b32 mat_cross_entropy_add_grad(matrix *out, const matrix *p, const matrix *q);
 
+void draw_mnist_digit(f32 *data);
+
 int main(void)
 {
   arena_t *perm_arena = arena_create(GiB(1));
 
-  arena_destory(&perm_arena);
+  matrix *train_imgs = mat_load(perm_arena, 60000, 784, "train_images.mat");
+  matrix *test_imgs = mat_load(perm_arena, 10000, 784, "test_images.mat");
+  matrix *train_labels = mat_create(perm_arena, 60000, 10);
+  matrix *test_labels = mat_create(perm_arena, 10000, 10);
+
+  { // one-hot encoding
+    matrix *train_labels_file = mat_load(perm_arena, 60000, 1, "train_labels.mat");
+    matrix *test_labels_file = mat_load(perm_arena, 60000, 1, "test_labels.mat");
+
+    for (u32 i = 0; i < 60000; i++)
+    {
+      u32 num = train_labels_file->data[i];
+      train_labels->data[i * 10 + num] = 1.0f;
+    }
+
+    for (u32 i = 0; i < 10000; i++)
+    {
+      u32 num = test_labels_file->data[i];
+      test_labels->data[i * 10 + num] = 1.0f;
+    }
+  }
+
+  draw_mnist_digit(train_imgs->data);
+  for (u32 i = 0; i < 10; i++)
+  {
+    printf("%.0f ", train_labels->data[i]);
+  }
+  printf("\n");
+
+  arena_destroy(&perm_arena);
 
   return 0;
+}
+
+void draw_mnist_digit(f32 *data)
+{
+  for (u32 y = 0; y < 28; y++)
+  {
+    for (u32 x = 0; x < 28; x++)
+    {
+      f32 num = data[x + y * 28];
+      u32 col = 232 + (u32)(num * 24);
+      printf("\x1b[48;5;%dm   ", col);
+    }
+    printf("\n");
+  }
+  printf("\x1b[0m");
 }
 
 matrix *mat_create(arena_t *arena, u32 rows, u32 cols)
@@ -47,6 +90,27 @@ matrix *mat_create(arena_t *arena, u32 rows, u32 cols)
   mat->data = PUSH_ARRAY(arena, f32, (u64)rows * cols);
   return mat;
 }
+
+matrix *mat_load(arena_t *arena, u32 rows, u32 cols, const char *filename)
+{
+  matrix *mat = mat_create(arena, rows, cols);
+
+  FILE *f = fopen(filename, "rb");
+  if (!f)
+    return NULL;
+
+  fseek(f, 0, SEEK_END);
+  u64 size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  size = MIN(size, sizeof(f32) * rows * cols);
+
+  fread(mat->data, 1, size, f);
+
+  fclose(f);
+  return mat;
+}
+
 void mat_clear(matrix *mat)
 {
   memset(mat->data, 0, sizeof(f32) * (u64)mat->rows * mat->cols);
@@ -178,7 +242,6 @@ void _mat_mul_tt(matrix *out, const matrix *a, const matrix *b)
 
 b32 mat_mul(matrix *out, const matrix *a, const matrix *b, b8 zero_out, b8 transpose_a, b8 transpose_b)
 {
-
   u32 a_rows = transpose_a ? a->cols : a->rows;
   u32 b_rows = transpose_b ? b->cols : b->rows;
   u32 a_cols = transpose_a ? a->rows : a->cols;
@@ -267,6 +330,6 @@ b32 mat_cross_entropy(matrix *out, const matrix *p, const matrix *q)
   return true;
 }
 
-b32 mat_relu_add_grad(matrix *out, const matrix *in);
-b32 mat_softmax_add_grad(matrix *out, const matrix *softmax_out);
-b32 mat_cross_entropy_add_grad(matrix *out, const matrix *p, const matrix *q);
+b32 mat_relu_add_grad(matrix *out, const matrix *in) {}
+b32 mat_softmax_add_grad(matrix *out, const matrix *softmax_out) {}
+b32 mat_cross_entropy_add_grad(matrix *out, const matrix *p, const matrix *q) {}
